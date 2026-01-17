@@ -781,6 +781,123 @@
     return out;
   }
 
+  // ======================================================================
+  // 追加機能(1): URLクエリで初期状態を指定  (?kif=...&ply=10&bply=10&branch=1)
+  // 追加機能(2): 局面URL共有（今見てる手数・分岐をリンク化：アドレスバー自動更新）
+  // 追加機能(3): CSSだけ差し替え可能（?css=... と軽い上書き ?sq=48&fs=110）
+  // ※既存関数の改変はしていない。追加関数＋初期化末尾の呼び出しのみ。
+  // ======================================================================
+
+  let loadedKifUrl = null;
+
+  function applyThemeFromQuery() {
+    try {
+      const usp = new URLSearchParams(location.search);
+
+      const cssUrl = usp.get("css");
+      if (cssUrl) {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = cssUrl;
+        document.head.appendChild(link);
+      }
+
+      const sq = usp.get("sq");
+      if (sq) {
+        const n = Number(sq);
+        if (Number.isFinite(n) && n >= 24 && n <= 120) {
+          document.documentElement.style.setProperty("--sq", `${n}px`);
+        }
+      }
+
+      const fs = usp.get("fs");
+      if (fs) {
+        const n = Number(fs);
+        if (Number.isFinite(n) && n >= 50 && n <= 200) {
+          document.body.style.fontSize = `${n}%`;
+        }
+      }
+    } catch (_) {}
+  }
+
+  async function initFromQueryIfAny() {
+    try {
+      const usp = new URLSearchParams(location.search);
+      const kifParam = usp.get("kif");
+      if (!kifParam) return;
+
+      const ply = Number(usp.get("ply") || "0");
+      const bplyRaw = usp.get("bply");
+      const bply = Number((bplyRaw === null || bplyRaw === "") ? (usp.get("ply") || "0") : bplyRaw);
+      const branch = Number(usp.get("branch") || "0");
+
+      loadedKifUrl = kifParam;
+
+      const res = await fetch(kifParam, { cache: "no-store" });
+      if (!res.ok) return;
+
+      const buf = await res.arrayBuffer();
+      const text = decodeKif(buf);
+      elKifText.value = text;
+
+      loadKifText(text);
+
+      if (Number.isFinite(bply) && Number.isFinite(branch) && branch > 0) {
+        branchChoice[Math.max(0, bply)] = branch;
+        buildPositions();
+      }
+
+      if (Number.isFinite(ply)) {
+        setPly(Math.max(0, ply));
+      }
+    } catch (_) {}
+  }
+
+  function getCurrentShareUrl() {
+    const base = `${location.origin}${location.pathname}`;
+    const usp = new URLSearchParams();
+
+    if (loadedKifUrl) usp.set("kif", loadedKifUrl);
+
+    usp.set("ply", String(curPly));
+
+    // このビューアの仕様上「最初に出現する分岐選択」だけが実質効くので、そこを共有値にする
+    try {
+      const keys = Object.keys(branchChoice || {});
+      let bestPly = null;
+      let bestVal = 0;
+      for (const k of keys) {
+        const p = Number(k);
+        const v = Number(branchChoice[k]);
+        if (!(Number.isFinite(p) && Number.isFinite(v))) continue;
+        if (v <= 0) continue;
+        if (bestPly === null || p < bestPly) { bestPly = p; bestVal = v; }
+      }
+      if (bestPly !== null && bestVal > 0) {
+        usp.set("bply", String(bestPly));
+        usp.set("branch", String(bestVal));
+      }
+    } catch (_) {}
+
+    const qs = usp.toString();
+    return qs ? `${base}?${qs}` : base;
+  }
+
+  function startShareUrlAutoSync() {
+    let last = "";
+    const tick = () => {
+      try {
+        const now = getCurrentShareUrl();
+        if (now !== last) {
+          last = now;
+          history.replaceState(null, "", now);
+        }
+      } catch (_) {}
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
   // buttons
   document.getElementById("btnFirst").addEventListener("click", () => setPly(0));
   document.getElementById("btnPrev").addEventListener("click", () => setPly(curPly-1));
@@ -802,6 +919,7 @@
   document.getElementById("btnLoadText").addEventListener("click", () => {
     const t = elKifText.value;
     if (!t.trim()) return;
+    loadedKifUrl = null;
     loadKifText(t);
   });
 
@@ -811,6 +929,7 @@
     const buf = await f.arrayBuffer();
     const text = decodeKif(buf);
     elKifText.value = text;
+    loadedKifUrl = null;
     loadKifText(text);
   });
 
@@ -821,6 +940,7 @@
       const buf = await res.arrayBuffer();
       const text = decodeKif(buf);
       elKifText.value = text;
+      loadedKifUrl = "./piyo_prev_game.kif";
       loadKifText(text);
     } catch (e) {
       alert("サンプルが見つからないわ。リポジトリ直下に piyo_prev_game.kif を置いてね。");
@@ -863,11 +983,16 @@
   });
 
   // initial empty render
+  applyThemeFromQuery();
   kif = { meta:{}, mainMoves:[], varMap:new Map() };
   positions = [initStartpos()];
   renderBoard(positions[0]);
   renderHands(positions[0]);
   updateBranchUI();
+
+  // URL初期化 + URL自動同期（既存機能に干渉しない）
+  initFromQueryIfAny();
+  startShareUrlAutoSync();
 })();
 </script>
 </body>
