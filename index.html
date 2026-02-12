@@ -5,12 +5,17 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>KIF Viewer (branch)</title>
   <style>
+    *{ box-sizing: border-box; }
     :root{
       --sq: 44px;
-      --wood1:#d9b27a;
-      --wood2:#cfa56a;
-      --woodLine:#805a2a;
-      --cellLine: rgba(0,0,0,.55);
+      --topPanelH: clamp(250px, 34vh, 340px);
+      --wood1:#ebbe66;
+      --wood2:#e7b95f;
+      --woodLine:#5c3718;
+      --handWood1:#ebbe66;
+      --handWood2:#e7b95f;
+      --handChip:#f6e8c9;
+      --cellLine: rgba(64,37,15,.82);
       --panel:#ffffff;
       --shadow: 0 10px 26px rgba(0,0,0,.10);
     }
@@ -20,8 +25,38 @@
       background: #f6f6f6;
       color:#111;
     }
-    h1{ font-size: 18px; margin: 0 0 12px; }
-    .row{ display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
+    .row{
+      display:grid;
+      gap:16px;
+      align-items:stretch;
+      grid-template-columns: minmax(420px, 1.06fr) minmax(320px, .88fr) minmax(300px, .78fr);
+      grid-template-areas:
+        "load tools moves"
+        "board board moves";
+    }
+    .panelLoad{
+      grid-area: load;
+      min-width: 0;
+      display:flex;
+      flex-direction:column;
+      height: var(--topPanelH);
+    }
+    .panelBoard{ grid-area: board; min-width: 0; }
+    .panelTools{
+      grid-area: tools;
+      min-width: 0;
+      display:flex;
+      flex-direction:column;
+      height: var(--topPanelH);
+    }
+    .panelMoves{
+      grid-area: moves;
+      min-width: 0;
+      position: sticky;
+      top: 16px;
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+    }
     .panel{
       border: 1px solid #e6e6e6;
       border-radius: 14px;
@@ -37,13 +72,47 @@
       background: #fff;
       cursor: pointer;
     }
+    button.activeChoice{
+      background: #f8e5bb;
+      border-color: #c38f3a;
+    }
     button:active{ transform: translateY(1px); }
-    input[type="range"]{ width: min(560px, 92vw); }
+    input[type="range"]{ width: min(560px, 100%); }
+    input[type="number"], input[type="text"]{
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #cfcfcf;
+      background:#fff;
+    }
+    input[type="file"]{
+      max-width: 100%;
+    }
     textarea{
-      width: min(560px, 92vw);
+      width: 100%;
+      max-width: 100%;
       height: 140px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 12px;
+    }
+    .panelLoadBody,
+    .panelToolsBody{
+      display:flex;
+      flex-direction:column;
+      gap:5px;
+      min-height:0;
+      flex:1;
+    }
+    .panelLoadBody{ overflow:auto; }
+    .panelToolsBody{ overflow:auto; }
+    #kifText{
+      height: 72px;
+      min-height: 72px;
+      max-height: 104px;
+    }
+    .panelLoad .meta{
+      max-height: 64px;
+      overflow:auto;
+      margin-top: 0;
     }
     .meta{ font-size: 12px; color:#444; white-space: pre-wrap; margin-top:10px; }
 
@@ -57,9 +126,13 @@
     .handBox{
       border-radius: 12px;
       padding: 10px 10px 8px;
-      background: #fff;
-      border: 1px solid #eee;
-      box-shadow: 0 6px 18px rgba(0,0,0,.06);
+      background:
+        linear-gradient(180deg, rgba(255,241,205,.14), rgba(188,121,46,.08)),
+        linear-gradient(150deg, var(--handWood1), var(--handWood2));
+      border: 1px solid rgba(92,55,24,.40);
+      box-shadow:
+        0 6px 14px rgba(79,49,20,.14),
+        inset 0 1px 0 rgba(255,244,212,.18);
       min-height: calc(var(--sq) * 3);
     }
     .handTitle{
@@ -69,7 +142,7 @@
       display:flex;
       justify-content: space-between;
       align-items: baseline;
-      color:#222;
+      color:#402b14;
     }
     .handGrid{
       display:flex;
@@ -84,8 +157,8 @@
       min-width: 38px;
       padding: 6px 8px;
       border-radius: 999px;
-      border: 1px solid #e7e7e7;
-      background: #fafafa;
+      border: 1px solid rgba(92,55,24,.30);
+      background: linear-gradient(180deg, var(--handChip), #efd8a8);
       font-family: "Hiragino Mincho ProN","Hiragino Mincho Pro","Noto Serif JP","Yu Mincho",serif;
       font-size: 16px;
       letter-spacing: .02em;
@@ -100,21 +173,23 @@
     .boardWrap{
       display:flex;
       flex-direction:column;
-      gap: 10px;
+      gap: 8px;
       align-items:center;
     }
     .boardFrame{
       padding: 10px;
       border-radius: 14px;
       background:
-        linear-gradient(135deg, var(--wood1), var(--wood2));
-      box-shadow: 0 10px 26px rgba(0,0,0,.18);
-      border: 1px solid rgba(0,0,0,.15);
+        linear-gradient(180deg, rgba(255,241,205,.14), rgba(188,121,46,.08)),
+        linear-gradient(150deg, var(--wood1), var(--wood2));
+      box-shadow: 0 8px 18px rgba(79,49,20,.20);
+      border: 1px solid rgba(92,55,24,.42);
+      cursor: ew-resize;
     }
     table.board{
       border-collapse: collapse;
       user-select:none;
-      background: rgba(255,255,255,.06);
+      background: #ebbe66;
     }
     table.board td{
       width: var(--sq);
@@ -129,7 +204,7 @@
       content:"";
       position:absolute;
       inset:0;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.20);
+      box-shadow: inset 0 1px 0 rgba(255,246,217,.08);
       pointer-events:none;
     }
     table.board td .gote{
@@ -139,11 +214,30 @@
     table.board td .piece{
       font-family: "Hiragino Mincho ProN","Hiragino Mincho Pro","Noto Serif JP","Yu Mincho",serif;
       font-weight: 700;
-      text-shadow: 0 1px 0 rgba(255,255,255,.20);
+      color: #1f1a12;
+      text-shadow: 0 1px 0 rgba(255,245,220,.14);
+    }
+    table.board td .piece.promoted{
+      color: #9c1f1f;
+      text-shadow: 0 1px 0 rgba(255,235,235,.16);
+    }
+    table.board td.lastFrom{
+      background: rgba(115, 72, 28, .18);
+    }
+    table.board td.lastTo{
+      background: rgba(255, 238, 178, .44);
+    }
+    table.board td.lastTo .piece{
+      animation: piecePop .17s ease-out;
+    }
+    @keyframes piecePop{
+      from{ transform: translateY(3px) scale(.88); opacity:.7; }
+      to{ transform: translateY(0) scale(1); opacity:1; }
     }
 
     .small{ font-size: 12px; color:#666; }
-    .movelist{ max-height: calc(var(--sq) * 9 + 92px); overflow:auto; width: min(560px, 92vw); }
+    .kbdHelp{ margin-top: 2px; opacity: .9; }
+    .movelist{ width: 100%; }
     .movelist ol{ margin:0; padding-left:22px; }
     .movelist li{ padding: 4px 6px; border-radius: 8px; cursor:pointer; }
     .movelist li:hover{ background:#f3f3f3; }
@@ -165,37 +259,171 @@
       flex-wrap:wrap;
       justify-content:center;
     }
+    .jumpInput{
+      width: 96px;
+    }
+    .sfenInput{
+      width: min(360px, 100%);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
+    .panelLoad .sfenInput{
+      flex: 1 1 260px;
+      min-width: 0;
+    }
+    .sideTools{
+      width: 100%;
+    }
+    .panelLabel{
+      margin: 0;
+      font-size: 12px;
+      color:#5a3a1a;
+      font-weight: 700;
+    }
+    .branchTree{
+      display:flex;
+      flex-direction:column;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .branchPoint{
+      border: 1px solid #e6d2ae;
+      border-radius: 10px;
+      padding: 8px;
+      background: #fff8ea;
+    }
+    .branchHead{
+      font-size: 12px;
+      color: #5a3a1a;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+    .branchChoices{
+      display:flex;
+      flex-wrap:wrap;
+      gap: 6px;
+    }
+    .branchChoices button{
+      font-size: 12px;
+      padding: 6px 8px;
+    }
+    .bookmarkList{
+      display:flex;
+      flex-direction:column;
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+    .bookmarkItem{
+      text-align:left;
+      font-size: 12px;
+    }
+    .noteArea{
+      width: 100%;
+      height: 64px;
+      min-height: 64px;
+      font-size: 12px;
+      flex: 0 0 64px;
+    }
+    .tagNote{
+      display:inline-block;
+      margin-left:6px;
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      border: 1px solid #d2d2d2;
+      color: #555;
+      background: #fff;
+    }
+    .tagBookmark{
+      display:inline-block;
+      margin-left:6px;
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      border: 1px solid #e2c47d;
+      color: #5a3c00;
+      background: #fff3cd;
+    }
     select{
       padding: 8px 10px;
       border-radius: 10px;
       border: 1px solid #cfcfcf;
       background:#fff;
     }
+
+    @media (max-width: 1320px) {
+      .row{
+        grid-template-columns: minmax(0, 1fr) minmax(300px, .92fr);
+        grid-template-areas:
+          "load moves"
+          "tools moves"
+          "board moves";
+      }
+      .panelLoad,
+      .panelTools{
+        height: auto;
+      }
+    }
+    @media (max-height: 930px) and (min-width: 961px) {
+      :root{
+        --sq: 40px;
+        --topPanelH: clamp(225px, 29vh, 280px);
+      }
+      .panel{
+        padding: 10px;
+      }
+      .boardArea{
+        gap: 10px;
+      }
+    }
+    @media (max-width: 960px) {
+      .row{
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "load"
+          "board"
+          "moves"
+          "tools";
+      }
+      .boardArea {
+        grid-template-columns: 1fr;
+      }
+      .handLeft,
+      .handRight {
+        align-self: stretch;
+      }
+      .panelMoves{
+        position: static;
+        max-height: 360px;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>簡易 棋譜再生（KIF / 分岐つき）</h1>
-
   <div class="row">
-    <div class="panel">
-      <div class="controls">
-        <!-- iOSで選べない時があるなら accept を消すのが最強 -->
-        <input id="file" type="file" accept=".kif,.kifu,.txt,text/plain,application/octet-stream" />
-        <button id="btnSample" title="同じリポジトリに piyo_prev_game.kif を置いた場合">サンプル読込</button>
-      </div>
-      <div style="margin-top:10px">
+    <div class="panel panelLoad">
+      <div class="panelLoadBody">
+        <div class="controls">
+          <input id="file" type="file" accept=".kif,.kifu,.txt,text/plain,application/octet-stream" />
+        </div>
         <div class="small">ファイルが面倒なら、ここにKIFを貼って「貼付読込」でもOK。</div>
         <textarea id="kifText" placeholder="ここにKIFを貼り付け"></textarea>
-        <div class="controls" style="margin-top:8px">
+        <div class="controls">
           <button id="btnLoadText">貼付読込</button>
           <button id="btnReset">初期局面</button>
           <button id="btnCopyLineKif">このラインをKIFコピー</button>
+          <button id="btnCopySfen">局面SFENコピー</button>
+          <button id="btnCopyUrl">局面URLコピー</button>
         </div>
+        <div class="controls">
+          <input id="sfenInput" class="sfenInput" type="text" placeholder="sfen lnsgkgsnl/1r5b1/... b - 1  または  position sfen ..." />
+          <button id="btnLoadSfen">SFEN読込</button>
+        </div>
+        <div class="meta" id="meta"></div>
       </div>
-      <div class="meta" id="meta"></div>
     </div>
 
-    <div class="panel">
+    <div class="panel panelBoard">
       <div class="boardArea">
         <div class="handBox handLeft">
           <div class="handTitle"><span>後手</span><span class="small" id="goteNote"></span></div>
@@ -217,12 +445,16 @@
             <button id="btnPrev">&lt;</button>
             <button id="btnNext">&gt;</button>
             <button id="btnLast">&gt;|</button>
+            <button id="btnFlip" title="盤面を反転表示">反転</button>
           </div>
           <div class="controls">
             <input id="slider" type="range" min="0" max="0" value="0" />
             <span id="plyLabel" class="small">0手目</span>
+            <input id="jumpPly" class="jumpInput" type="number" min="0" step="1" placeholder="手数" />
+            <button id="btnJump">ジャンプ</button>
           </div>
           <div class="small" id="moveLabel"></div>
+          <div class="small kbdHelp">⌨ ←/→:1手  ↑/↓:10手  Home/End  Space/Shift+Space</div>
         </div>
 
         <div class="handBox handRight">
@@ -232,9 +464,26 @@
       </div>
     </div>
 
-    <div class="panel movelist">
+    <div class="panel panelMoves movelist">
       <div class="small" style="margin-bottom:6px">手順（タップで移動）</div>
       <ol id="moves"></ol>
+    </div>
+
+    <div class="panel panelTools sideTools">
+      <div class="panelToolsBody">
+        <div class="panelLabel">分岐ツリー</div>
+        <div id="branchTree" class="branchTree"></div>
+
+        <div class="panelLabel">しおり</div>
+        <div id="bookmarkList" class="bookmarkList"></div>
+
+        <div class="panelLabel">この手のメモ</div>
+        <textarea id="noteText" class="noteArea" placeholder="この手の所感・ブログ用メモなど"></textarea>
+        <div class="controls">
+          <button id="btnToggleBookmark">この手をしおり</button>
+          <button id="btnClearNote">メモ削除</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -315,7 +564,7 @@
       }
     }
     const hands = { b:{}, w:{} };
-    return { board:b, hands, stm:"b", lastTo:null };
+    return { board:b, hands, stm:"b", lastFrom:null, lastTo:null };
   }
 
   function clonePos(pos){
@@ -326,32 +575,164 @@
     }
     const h2 = { b:{}, w:{} };
     for (const s of ["b","w"]) for (const k in pos.hands[s]) h2[s][k] = pos.hands[s][k];
-    return { board:b2, hands:h2, stm:pos.stm, lastTo: pos.lastTo ? { ...pos.lastTo } : null };
+    return {
+      board:b2,
+      hands:h2,
+      stm:pos.stm,
+      lastFrom: pos.lastFrom ? { ...pos.lastFrom } : null,
+      lastTo: pos.lastTo ? { ...pos.lastTo } : null,
+    };
+  }
+
+  function pieceToSfenToken(piece) {
+    const base = unpromote(piece.kind);
+    const letter = base === "K" ? "K" : base;
+    const promoted = isPromoted(piece.kind) ? `+${letter}` : letter;
+    return piece.side === "b" ? promoted : promoted.toLowerCase();
+  }
+
+  function sfenTokenToKind(token) {
+    const promoted = token.startsWith("+");
+    const letter = promoted ? token.slice(1) : token;
+    const up = letter.toUpperCase();
+    const base = (up === "P" || up === "L" || up === "N" || up === "S" || up === "G" || up === "B" || up === "R" || up === "K")
+      ? up
+      : null;
+    if (!base) return null;
+    return promoted ? promote(base) : base;
+  }
+
+  function positionToSfen(pos, moveNo = 1) {
+    const rows = [];
+    for (let r=1; r<=9; r++) {
+      let row = "";
+      let empty = 0;
+      for (let f=9; f>=1; f--) {
+        const p = pos.board[r][f];
+        if (!p) { empty += 1; continue; }
+        if (empty > 0) { row += String(empty); empty = 0; }
+        row += pieceToSfenToken(p);
+      }
+      if (empty > 0) row += String(empty);
+      rows.push(row);
+    }
+
+    const order = ["R","B","G","S","N","L","P"];
+    let hands = "";
+    for (const side of ["b","w"]) {
+      for (const k of order) {
+        const n = pos.hands[side][k] || 0;
+        if (n <= 0) continue;
+        if (n > 1) hands += String(n);
+        hands += side === "b" ? k : k.toLowerCase();
+      }
+    }
+    if (!hands) hands = "-";
+
+    const turn = pos.stm === "w" ? "w" : "b";
+    const plyNo = Math.max(1, Number.isFinite(moveNo) ? Math.floor(moveNo) : 1);
+    return `${rows.join("/")} ${turn} ${hands} ${plyNo}`;
+  }
+
+  function parseSfenPosition(text) {
+    let s = String(text || "").trim();
+    if (!s) return null;
+
+    if (s.startsWith("position startpos")) return initStartpos();
+    if (s.startsWith("position sfen ")) s = s.slice("position sfen ".length).trim();
+    if (s.startsWith("sfen ")) s = s.slice(5).trim();
+
+    const parts = s.split(/\s+/);
+    if (parts.length < 4) return null;
+    const [boardPart, turnPart, handPart] = parts;
+
+    const board = emptyBoard();
+    const ranks = boardPart.split("/");
+    if (ranks.length !== 9) return null;
+
+    for (let r=1; r<=9; r++) {
+      const row = ranks[r-1];
+      let f = 9;
+      for (let i=0; i<row.length; i++) {
+        const ch = row[i];
+        if (/\d/.test(ch)) { f -= Number(ch); continue; }
+        let token = ch;
+        if (ch === "+") {
+          const next = row[i+1];
+          if (!next) return null;
+          token = `+${next}`;
+          i += 1;
+        }
+        const kind = sfenTokenToKind(token);
+        if (!kind) return null;
+        const pieceChar = token.startsWith("+") ? token[1] : token[0];
+        const side = pieceChar === pieceChar.toUpperCase() ? "b" : "w";
+        if (f < 1 || f > 9) return null;
+        board[r][f] = { side, kind };
+        f -= 1;
+      }
+      if (f !== 0) return null;
+    }
+
+    const hands = { b:{}, w:{} };
+    if (handPart !== "-") {
+      const re = /(\d+)?([RBGSNLPrbgsnlp])/g;
+      let m;
+      while ((m = re.exec(handPart)) !== null) {
+        const n = m[1] ? Number(m[1]) : 1;
+        const letter = m[2];
+        const side = letter === letter.toUpperCase() ? "b" : "w";
+        const base = letter.toUpperCase();
+        hands[side][base] = (hands[side][base] || 0) + n;
+      }
+    }
+
+    return {
+      board,
+      hands,
+      stm: turnPart === "w" ? "w" : "b",
+      lastFrom: null,
+      lastTo: null,
+    };
   }
 
   // ---- KIF parsing (main + variations "変化：N手")
   const FW_DIGITS = "０１２３４５６７８９";
+  const HW_DIGITS = "0123456789";
   const KAN_RANK = { "一":1,"二":2,"三":3,"四":4,"五":5,"六":6,"七":7,"八":8,"九":9 };
+  const SPECIAL_MOVES = new Set([
+    "投了", "中断", "千日手", "持将棋", "詰み", "入玉勝ち",
+    "切れ負け", "反則勝ち", "反則負け", "不戦勝", "不戦敗",
+  ]);
+
+  function toAsciiDigits(s) {
+    return String(s || "").replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
+  }
+
+  function compactMoveText(s) {
+    return String(s || "").replace(/[ \t\u3000]/g, "");
+  }
+
+  function isSpecialMove(mvStr) {
+    return SPECIAL_MOVES.has(compactMoveText(mvStr));
+  }
+
   function parseDest(s, lastTo) {
-    s = s.trim();
+    s = compactMoveText(s);
     if (s.startsWith("同")) {
       if (!lastTo) return null;
-      return { f:lastTo.f, r:lastTo.r, rest: s.replace(/^同\s*/, "") };
+      return { f:lastTo.f, r:lastTo.r, rest: s.replace(/^同[\s　]*/, "") };
     }
     const fch = s[0], rch = s[1];
-    const f = FW_DIGITS.indexOf(fch);
+    let f = FW_DIGITS.indexOf(fch);
+    if (!(f >= 1 && f <= 9)) f = HW_DIGITS.indexOf(fch);
     const r = KAN_RANK[rch];
     if (!(f>=1 && f<=9 && r>=1 && r<=9)) return null;
     return { f, r, rest: s.slice(2) };
   }
 
   function parsePieceAndFlags(rest) {
-    rest = rest.replace(/\s+/g, "");
-    let isDrop = rest.includes("打");
-    rest = rest.replace(/打/g, "");
-    let forceNoProm = rest.includes("不成");
-    rest = rest.replace(/不成/g, "");
-    rest = rest.replace(/[右左直寄引上行]/g, "");
+    rest = compactMoveText(rest);
 
     const tokens = [
       ["成銀","pS"], ["成桂","pN"], ["成香","pL"], ["成歩","pP"],
@@ -359,26 +740,52 @@
       ["飛","R"], ["角","B"], ["金","G"], ["銀","S"], ["桂","N"], ["香","L"], ["歩","P"], ["玉","K"], ["王","K"],
     ];
     let kind = null;
+    let tail = "";
     for (const [t,k] of tokens){
-      if (rest.startsWith(t)) { kind = k; rest = rest.slice(t.length); break; }
+      if (rest.startsWith(t)) { kind = k; tail = rest.slice(t.length); break; }
     }
     if (!kind) return null;
 
+    const isDrop = tail.includes("打");
+    const forceNoProm = tail.includes("不成");
+
     let prom = false;
-    if (!forceNoProm && rest.startsWith("成")) { prom = true; rest = rest.slice(1); }
+    if (!forceNoProm && tail.includes("成")) prom = true;
     if (forceNoProm) prom = false;
     if (isPromoted(kind)) prom = false;
 
-    return { kind, prom, isDrop };
+    const hints = {
+      right: tail.includes("右"),
+      left: tail.includes("左"),
+      straight: tail.includes("直"),
+      sideways: tail.includes("寄"),
+      up: tail.includes("上") || tail.includes("行"),
+      down: tail.includes("引"),
+    };
+    return { kind, prom, isDrop, hints };
   }
 
   function parseMoveLine(line) {
     //  11 ８七歩打 ( 0:01/00:00:06)
     //   1 ２六歩(27)( 0:01/00:00:01)
-    const m1 = line.match(/^\s*(\d+)\s+(.+?)\((\d\d)\)\s*\(/);
-    if (m1) return { no:Number(m1[1]), mvStr:m1[2].trim(), from:m1[3], raw:line };
-    const m2 = line.match(/^\s*(\d+)\s+(.+?)\s*\(/);
-    if (m2) return { no:Number(m2[1]), mvStr:m2[2].trim(), from:null, raw:line };
+    const strict = line.match(/^\s*([0-9０-９]+)\s+(.+?)\s*(?:[（(]([0-9０-９]{2})[)）])?\s*(?:[（(]|$)/);
+    if (strict) {
+      return {
+        no: Number(toAsciiDigits(strict[1])),
+        mvStr: strict[2].trim(),
+        from: strict[3] ? toAsciiDigits(strict[3]) : null,
+        raw: line,
+      };
+    }
+    const legacy = line.match(/^\s*([0-9０-９]+)\s+(.+?)\s*$/);
+    if (legacy) {
+      return {
+        no: Number(toAsciiDigits(legacy[1])),
+        mvStr: legacy[2].trim(),
+        from: null,
+        raw: line,
+      };
+    }
     return null;
   }
 
@@ -394,22 +801,31 @@
 
     for (const line0 of lines) {
       const line = line0.trimEnd();
-      if (!line) continue;
+      const t = line.trim();
+      if (!t) continue;
 
-      if (line.includes("手数----指手")) { inMoves = true; continue; }
+      if (t.includes("手数----指手")) { inMoves = true; continue; }
 
       if (!inMoves) {
-        const m = line.match(/^([^：]+)：(.*)$/);
+        const m = t.match(/^([^：:]+)[：:](.*)$/);
         if (m) meta[m[1].trim()] = m[2].trim();
         continue;
       }
 
-      if (line.startsWith("*")) continue;
+      if (t.startsWith("*")) {
+        const comment = t.replace(/^\*\s?/, "");
+        const targetList = curVar ? curVar.moves : mainMoves;
+        if (targetList.length) {
+          const last = targetList[targetList.length - 1];
+          last.comment = last.comment ? `${last.comment}\n${comment}` : comment;
+        }
+        continue;
+      }
 
-      const vh = line.match(/^変化：\s*(\d+)\s*手/);
-      if (vh) {
+      const vh = t.match(/^変化[：:]\s*([0-9０-９]+)\s*手/);
+      if (vh && Number.isFinite(Number(toAsciiDigits(vh[1])))) {
         if (curVar) variations.push(curVar);
-        curVar = { startNo: Number(vh[1]), moves: [] };
+        curVar = { startNo: Number(toAsciiDigits(vh[1])), moves: [] };
         continue;
       }
 
@@ -431,6 +847,53 @@
     }
 
     return { meta, mainMoves, varMap };
+  }
+
+  function parseKi2(text) {
+    const lines = text.split(/\r?\n/);
+    const meta = {};
+    const moveLines = [];
+
+    for (const line0 of lines) {
+      const t = line0.trim();
+      if (!t) continue;
+      if (t.startsWith("*")) continue;
+      if (/^まで[0-9０-９]+手/.test(t)) continue;
+      const m = t.match(/^([^：:]+)[：:](.*)$/);
+      if (m) {
+        meta[m[1].trim()] = m[2].trim();
+        continue;
+      }
+      moveLines.push(t);
+    }
+
+    const joined = moveLines.join(" ");
+    const mainMoves = [];
+    const tokenRe = /[▲△]\s*([^▲△]+)/g;
+    let tok;
+    while ((tok = tokenRe.exec(joined)) !== null) {
+      const body = tok[1].trim();
+      if (!body) continue;
+      const m = body.match(/^(.+?)(?:[（(]([0-9０-９]{2})[)）])?$/);
+      if (!m) continue;
+      mainMoves.push({
+        no: mainMoves.length + 1,
+        mvStr: m[1].trim(),
+        from: m[2] ? toAsciiDigits(m[2]) : null,
+        raw: body,
+      });
+    }
+
+    return { meta, mainMoves, varMap:new Map() };
+  }
+
+  function parseGameText(text) {
+    const kifParsed = parseKifWithBranches(text);
+    if (kifParsed.mainMoves.length > 0 || kifParsed.varMap.size > 0) return kifParsed;
+
+    const ki2Parsed = parseKi2(text);
+    if (ki2Parsed.mainMoves.length > 0) return ki2Parsed;
+    return kifParsed;
   }
 
   // ---- Move legality (simple) for inference when from missing
@@ -498,9 +961,65 @@
     return false;
   }
 
+  function narrowCandidates(list, predicate) {
+    const narrowed = list.filter(predicate);
+    return narrowed.length ? narrowed : list;
+  }
+
+  function collectMoveCandidates(board, side, wantBase, toF, toR) {
+    const out = [];
+    for (let r=1; r<=9; r++) {
+      for (let f=1; f<=9; f++) {
+        const p = board[r][f];
+        if (!p || p.side !== side) continue;
+        if (unpromote(p.kind) !== wantBase) continue;
+        if (!canReach(board, side, p.kind, f, r, toF, toR)) continue;
+        out.push({ f, r, p });
+      }
+    }
+    return out;
+  }
+
+  function pickMoveCandidate(candidates, side, toF, toR, hints) {
+    if (!candidates.length) return null;
+    let list = candidates.slice();
+
+    if (hints?.straight) list = narrowCandidates(list, (c) => c.f === toF);
+    if (hints?.sideways) list = narrowCandidates(list, (c) => c.r === toR);
+    if (hints?.up) list = narrowCandidates(list, (c) => side === "b" ? c.r > toR : c.r < toR);
+    if (hints?.down) list = narrowCandidates(list, (c) => side === "b" ? c.r < toR : c.r > toR);
+
+    if (hints?.right) {
+      const rightFile = side === "b"
+        ? Math.min(...list.map((c) => c.f))
+        : Math.max(...list.map((c) => c.f));
+      list = list.filter((c) => c.f === rightFile);
+    }
+    if (hints?.left) {
+      const leftFile = side === "b"
+        ? Math.max(...list.map((c) => c.f))
+        : Math.min(...list.map((c) => c.f));
+      list = list.filter((c) => c.f === leftFile);
+    }
+
+    list.sort((a, b) => {
+      const da = Math.abs(a.f - toF) + Math.abs(a.r - toR);
+      const db = Math.abs(b.f - toF) + Math.abs(b.r - toR);
+      if (da !== db) return da - db;
+      if (a.f !== b.f) return side === "b" ? a.f - b.f : b.f - a.f;
+      return side === "b" ? b.r - a.r : a.r - b.r;
+    });
+    return list[0] || null;
+  }
+
   function applyMove(pos, mvObj) {
     const next = clonePos(pos);
     const side = next.stm;
+
+    if (isSpecialMove(mvObj.mvStr)) {
+      next.lastFrom = null;
+      return { next, ok:true, terminal:true };
+    }
 
     const destParsed = parseDest(mvObj.mvStr, next.lastTo);
     if (!destParsed) return { next, ok:false };
@@ -509,9 +1028,11 @@
     const pf = parsePieceAndFlags(rest);
     if (!pf) return { next, ok:false };
 
-    let { kind, prom, isDrop } = pf;
+    let { kind, prom } = pf;
+    const isDrop = pf.isDrop || mvObj.from === "00";
 
     const target = next.board[toR][toF];
+    if (target && target.side === side) return { next, ok:false };
     if (target && target.side !== side) {
       const capBase = unpromote(target.kind);
       next.hands[side][capBase] = (next.hands[side][capBase] || 0) + 1;
@@ -527,19 +1048,15 @@
       const base = unpromote(kind);
       if ((next.hands[side][base] || 0) > 0) next.hands[side][base] -= 1;
       next.board[toR][toF] = { side, kind: base };
+      next.lastFrom = null;
     } else {
       let piece = null;
       if (fromF && fromR) piece = next.board[fromR][fromF];
 
       if (!piece || piece.side !== side) {
         const wantBase = unpromote(kind);
-        let found = null;
-        for (let r=1;r<=9;r++) for (let f=1;f<=9;f++){
-          const p = next.board[r][f];
-          if (!p || p.side !== side) continue;
-          if (unpromote(p.kind) !== wantBase) continue;
-          if (canReach(next.board, side, p.kind, f, r, toF, toR)) { found = {f,r,p}; break; }
-        }
+        const candidates = collectMoveCandidates(next.board, side, wantBase, toF, toR);
+        const found = pickMoveCandidate(candidates, side, toF, toR, pf.hints);
         if (found) { fromF = found.f; fromR = found.r; piece = found.p; }
         else { piece = { side, kind: wantBase }; fromF = null; fromR = null; }
       }
@@ -549,11 +1066,12 @@
       let movedKind = piece.kind;
       if (prom) movedKind = promote(unpromote(movedKind));
       next.board[toR][toF] = { side, kind: movedKind };
+      next.lastFrom = (fromF && fromR) ? { f:fromF, r:fromR } : null;
     }
 
     next.lastTo = { f:toF, r:toR };
     next.stm = (side === "b") ? "w" : "b";
-    return { next, ok:true };
+    return { next, ok:true, terminal:false };
   }
 
   // ---- UI state: mainline + branch selections
@@ -562,6 +1080,9 @@
   let pathMoves = [];       // effective move list after applying branch choices
   let positions = [];       // positions[ply]
   let curPly = 0;
+  let boardFlipped = false;
+  let noteMap = {};         // ply -> user note
+  let bookmarks = new Set();// ply set
 
   // elements
   const elBoard = document.getElementById("board");
@@ -576,13 +1097,64 @@
   const elHandSente = document.getElementById("handSente");
   const elBranchHint = document.getElementById("branchHint");
   const elBranchSelect = document.getElementById("branchSelect");
+  const elBoardFrame = document.querySelector(".boardFrame");
+  const elMovePanel = document.querySelector(".panel.movelist");
+  const elJumpPly = document.getElementById("jumpPly");
+  const elSfenInput = document.getElementById("sfenInput");
+  const elBranchTree = document.getElementById("branchTree");
+  const elBookmarkList = document.getElementById("bookmarkList");
+  const elNoteText = document.getElementById("noteText");
+  const elBtnToggleBookmark = document.getElementById("btnToggleBookmark");
+  const elBtnClearNote = document.getElementById("btnClearNote");
+  const elBtnFlip = document.getElementById("btnFlip");
+
+  function boardRankRange() {
+    const out = [];
+    if (boardFlipped) {
+      for (let r=9; r>=1; r--) out.push(r);
+    } else {
+      for (let r=1; r<=9; r++) out.push(r);
+    }
+    return out;
+  }
+
+  function boardFileRange() {
+    const out = [];
+    if (boardFlipped) {
+      for (let f=1; f<=9; f++) out.push(f);
+    } else {
+      for (let f=9; f>=1; f--) out.push(f);
+    }
+    return out;
+  }
+
+  function shouldRotatePiece(side) {
+    return boardFlipped ? side === "b" : side === "w";
+  }
+
+  function updateFlipButton() {
+    if (!elBtnFlip) return;
+    elBtnFlip.classList.toggle("activeChoice", boardFlipped);
+    elBtnFlip.textContent = boardFlipped ? "通常向き" : "反転";
+  }
+
+  function toggleBoardFlip(force) {
+    if (typeof force === "boolean") boardFlipped = force;
+    else boardFlipped = !boardFlipped;
+    updateFlipButton();
+    setPly(curPly);
+  }
 
   function renderBoard(pos) {
     elBoard.innerHTML = "";
-    for (let r=1; r<=9; r++) {
+    const ranks = boardRankRange();
+    const files = boardFileRange();
+    for (const r of ranks) {
       const tr = document.createElement("tr");
-      for (let f=9; f>=1; f--) {
+      for (const f of files) {
         const td = document.createElement("td");
+        if (pos.lastFrom && pos.lastFrom.f === f && pos.lastFrom.r === r) td.classList.add("lastFrom");
+        if (pos.lastTo && pos.lastTo.f === f && pos.lastTo.r === r) td.classList.add("lastTo");
         const p = pos.board[r][f];
         if (p) {
           const span = document.createElement("span");
@@ -591,7 +1163,8 @@
           const base = unpromote(k);
           const label = (isPromoted(k) ? PIECE[k] : PIECE[base]) || "?";
           span.textContent = label;
-          if (p.side === "w") span.classList.add("gote");
+          if (isPromoted(k)) span.classList.add("promoted");
+          if (shouldRotatePiece(p.side)) span.classList.add("gote");
           td.appendChild(span);
         }
         tr.appendChild(td);
@@ -621,23 +1194,25 @@
   }
 
   function computeEffectivePath() {
-    // build from main moves; if a branch is chosen at ply X, then from that ply onward, replace continuation with variation moves (and stop following main)
+    // Traverse current continuation line and allow branch selection at every reachable ply.
     const out = [];
-    let i = 0;
-    while (i < kif.mainMoves.length) {
-      const ply = out.length; // current ply before pushing next move
-      const varList = kif.varMap.get(ply) || null;
+    let activeLine = kif.mainMoves;
+    let lineOffset = 0; // activeLine[0] corresponds to this ply
 
-      const choice = branchChoice[ply] ?? 0; // 0=main, 1..=variation index
-      if (varList && choice > 0) {
-        const v = varList[choice - 1];
-        // variation moves include move numbers continuing from start; we just play them as given and then stop (KIF variations usually end line)
-        for (const mv of v.moves) out.push(mv);
-        break;
-      } else {
-        out.push(kif.mainMoves[i]);
-        i += 1;
+    while (true) {
+      const ply = out.length;
+      const varList = kif.varMap.get(ply) || null;
+      const rawChoice = Number(branchChoice[ply] ?? 0);
+      const choice = Number.isFinite(rawChoice) ? rawChoice : 0;
+
+      if (varList && choice > 0 && choice <= varList.length) {
+        activeLine = varList[choice - 1].moves;
+        lineOffset = ply;
       }
+
+      const idx = ply - lineOffset;
+      if (idx < 0 || idx >= activeLine.length) break;
+      out.push(activeLine[idx]);
     }
     return out;
   }
@@ -647,14 +1222,43 @@
     positions = [];
     let pos = initStartpos();
     positions.push(clonePos(pos));
+    const realizedMoves = [];
     for (const m of pathMoves) {
       const res = applyMove(pos, m);
+      if (!res.ok) break;
       pos = res.next;
+      realizedMoves.push(m);
       positions.push(clonePos(pos));
+      if (res.terminal) break;
     }
+    pathMoves = realizedMoves;
     elSlider.max = String(Math.max(0, positions.length-1));
     renderMovelist();
+    renderBookmarkList();
     setPly(Math.min(curPly, positions.length-1));
+  }
+
+  function moveLabelAtPly(ply) {
+    if (ply <= 0) return "初期局面";
+    const m = pathMoves[ply-1];
+    if (!m) return `${ply}.`;
+    return `${ply}. ${m.mvStr}${m.from ? ` (${m.from})` : ""}`;
+  }
+
+  function getDefaultMoveComment(ply) {
+    if (ply <= 0) return "";
+    const m = pathMoves[ply-1];
+    return m?.comment || "";
+  }
+
+  function getNoteForPly(ply) {
+    if (Object.prototype.hasOwnProperty.call(noteMap, ply)) return noteMap[ply];
+    return getDefaultMoveComment(ply);
+  }
+
+  function hasNoteAtPly(ply) {
+    const note = getNoteForPly(ply);
+    return !!String(note || "").trim();
   }
 
   function renderMovelist() {
@@ -662,7 +1266,22 @@
     pathMoves.forEach((m, idx) => {
       const li = document.createElement("li");
       const ply = idx + 1;
-      li.textContent = `${ply}. ${m.mvStr}${m.from ? " ("+m.from+")" : ""}`;
+      const title = document.createElement("span");
+      title.textContent = moveLabelAtPly(ply);
+      li.appendChild(title);
+
+      if (bookmarks.has(ply)) {
+        const bm = document.createElement("span");
+        bm.className = "tagBookmark";
+        bm.textContent = "しおり";
+        li.appendChild(bm);
+      }
+      if (hasNoteAtPly(ply)) {
+        const nt = document.createElement("span");
+        nt.className = "tagNote";
+        nt.textContent = "メモ";
+        li.appendChild(nt);
+      }
 
       // show branch badge if this ply-1 has variations
       const varList = kif.varMap.get(ply-1);
@@ -681,6 +1300,112 @@
     highlightMovelist();
   }
 
+  function renderBookmarkList() {
+    if (!elBookmarkList) return;
+    elBookmarkList.innerHTML = "";
+    const points = [...bookmarks]
+      .map((v) => Number(v))
+      .filter((v) => Number.isFinite(v) && v >= 0 && v <= positions.length - 1)
+      .sort((a, b) => a - b);
+
+    if (!points.length) {
+      elBookmarkList.innerHTML = `<span class="small">なし</span>`;
+      return;
+    }
+
+    for (const ply of points) {
+      const btn = document.createElement("button");
+      btn.className = "bookmarkItem";
+      btn.textContent = moveLabelAtPly(ply);
+      btn.addEventListener("click", () => setPly(ply));
+      elBookmarkList.appendChild(btn);
+    }
+  }
+
+  function collectReachableBranchPoints() {
+    const points = [];
+    let activeLine = kif.mainMoves;
+    let lineOffset = 0;
+    let ply = 0;
+
+    while (true) {
+      const idx = ply - lineOffset;
+      if (idx < 0 || idx >= activeLine.length) break;
+
+      const varList = kif.varMap.get(ply);
+      if (varList && varList.length) {
+        points.push({
+          ply,
+          mainMove: activeLine[idx],
+          variations: varList,
+          selected: Number(branchChoice[ply] ?? 0),
+        });
+        const choice = Number(branchChoice[ply] ?? 0);
+        if (choice > 0 && choice <= varList.length) {
+          activeLine = varList[choice - 1].moves;
+          lineOffset = ply;
+        }
+      }
+
+      ply += 1;
+    }
+
+    return points;
+  }
+
+  function applyBranchChoice(ply, choice) {
+    const n = Number(choice);
+    if (n > 0) branchChoice[ply] = n;
+    else delete branchChoice[ply];
+    for (const key of Object.keys(branchChoice)) {
+      if (Number(key) > ply) delete branchChoice[key];
+    }
+    buildPositions();
+    setPly(Math.min(curPly, positions.length - 1));
+  }
+
+  function renderBranchTree() {
+    if (!elBranchTree) return;
+    elBranchTree.innerHTML = "";
+
+    const points = collectReachableBranchPoints();
+    if (!points.length) {
+      elBranchTree.innerHTML = `<span class="small">このライン上に分岐はありません。</span>`;
+      return;
+    }
+
+    for (const p of points) {
+      const wrap = document.createElement("div");
+      wrap.className = "branchPoint";
+
+      const head = document.createElement("div");
+      head.className = "branchHead";
+      head.textContent = `${p.ply}手目からの分岐`;
+      wrap.appendChild(head);
+
+      const choices = document.createElement("div");
+      choices.className = "branchChoices";
+
+      const mainBtn = document.createElement("button");
+      mainBtn.textContent = `本筋: ${p.mainMove?.mvStr || "（終端）"}`;
+      if ((p.selected || 0) === 0) mainBtn.classList.add("activeChoice");
+      mainBtn.addEventListener("click", () => applyBranchChoice(p.ply, 0));
+      choices.appendChild(mainBtn);
+
+      p.variations.forEach((v, idx) => {
+        const b = document.createElement("button");
+        const first = v.moves?.[0]?.mvStr || "（終端）";
+        b.textContent = `変化${idx+1}: ${first}`;
+        if ((p.selected || 0) === idx + 1) b.classList.add("activeChoice");
+        b.addEventListener("click", () => applyBranchChoice(p.ply, idx + 1));
+        choices.appendChild(b);
+      });
+
+      wrap.appendChild(choices);
+      elBranchTree.appendChild(wrap);
+    }
+  }
+
   function highlightMovelist() {
     const lis = elMoves.querySelectorAll("li");
     lis.forEach(li => li.classList.remove("active"));
@@ -688,9 +1413,34 @@
       const li = elMoves.querySelector(`li[data-ply="${curPly}"]`);
       if (li) {
         li.classList.add("active");
-        li.scrollIntoView({ block:"nearest" });
+        keepActiveMoveVisible(li);
       }
     }
+  }
+
+  function keepActiveMoveVisible(li) {
+    if (!li || !elMovePanel) return;
+    const panelRect = elMovePanel.getBoundingClientRect();
+    const itemRect = li.getBoundingClientRect();
+    const pad = 10;
+
+    if (itemRect.top < panelRect.top + pad) {
+      elMovePanel.scrollTop -= (panelRect.top + pad - itemRect.top);
+    } else if (itemRect.bottom > panelRect.bottom - pad) {
+      elMovePanel.scrollTop += (itemRect.bottom - (panelRect.bottom - pad));
+    }
+  }
+
+  function updateBookmarkButton() {
+    if (!elBtnToggleBookmark) return;
+    if (bookmarks.has(curPly)) elBtnToggleBookmark.textContent = "しおり解除";
+    else elBtnToggleBookmark.textContent = "この手をしおり";
+  }
+
+  function updateNoteEditor() {
+    if (!elNoteText) return;
+    const note = getNoteForPly(curPly);
+    elNoteText.value = note || "";
   }
 
   function updateBranchUI() {
@@ -703,7 +1453,10 @@
       return;
     }
 
-    const sel = branchChoice[ply] ?? 0;
+    const rawSel = Number(branchChoice[ply] ?? 0);
+    const sel = (Number.isFinite(rawSel) && rawSel >= 0 && rawSel <= varList.length) ? rawSel : 0;
+    if (sel === 0) delete branchChoice[ply];
+    else branchChoice[ply] = sel;
     elBranchHint.textContent = `分岐：この局面から ${varList.length} 本`;
 
     elBranchSelect.innerHTML = "";
@@ -729,19 +1482,20 @@
     curPly = ply;
     elSlider.value = String(ply);
     elPlyLabel.textContent = `${ply}手目`;
+    if (elJumpPly) elJumpPly.value = String(ply);
 
     const pos = positions[ply];
     renderBoard(pos);
     renderHands(pos);
     highlightMovelist();
 
-    if (ply === 0) elMoveLabel.textContent = "初期局面";
-    else {
-      const m = pathMoves[ply-1];
-      elMoveLabel.textContent = `${ply}. ${m.mvStr}${m.from ? " ("+m.from+")" : ""}`;
-    }
+    elMoveLabel.textContent = moveLabelAtPly(ply);
 
     updateBranchUI();
+    renderBranchTree();
+    updateBookmarkButton();
+    updateNoteEditor();
+    syncShareUrl();
   }
 
   function setMeta(meta) {
@@ -752,8 +1506,10 @@
   }
 
   function loadKifText(text) {
-    kif = parseKifWithBranches(text);
+    kif = parseGameText(text);
     branchChoice = {};
+    noteMap = {};
+    bookmarks = new Set();
     setMeta(kif.meta);
     curPly = 0;
     buildPositions();
@@ -781,12 +1537,237 @@
     return out;
   }
 
+  function loadSinglePosition(pos, label = "SFEN") {
+    kif = { meta:{ 棋戦: label }, mainMoves:[], varMap:new Map() };
+    branchChoice = {};
+    pathMoves = [];
+    positions = [clonePos(pos)];
+    curPly = 0;
+    noteMap = {};
+    bookmarks = new Set();
+    setMeta({ 棋戦: label });
+    elSlider.max = "0";
+    renderMovelist();
+    renderBranchTree();
+    renderBookmarkList();
+    setPly(0);
+  }
+
+  async function copyCurrentSfen() {
+    const pos = positions[curPly];
+    if (!pos) return;
+    const sfen = positionToSfen(pos, curPly + 1);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(sfen);
+        alert("局面SFENをコピーしたわ。");
+      } else {
+        if (elSfenInput) elSfenInput.value = sfen;
+        alert("クリップボード非対応なので入力欄へ出したわ。");
+      }
+    } catch (_) {
+      if (elSfenInput) elSfenInput.value = sfen;
+      alert("コピーできないから入力欄へ出したわ。");
+    }
+  }
+
+  function loadSfenFromInput() {
+    const raw = elSfenInput?.value || "";
+    if (!raw.trim()) return;
+    const pos = parseSfenPosition(raw);
+    if (!pos) {
+      alert("SFENを解釈できなかったわ。");
+      return;
+    }
+    loadedKifUrl = null;
+    loadSinglePosition(pos, "SFEN局面");
+  }
+
+  // ======================================================================
+  // 追加機能(1): URLクエリで初期状態を指定  (?kif=...&ply=10&branches=10:1,22:2 / ?sfen=...)
+  // 追加機能(2): 局面URL共有（今見てる手数・分岐をリンク化：アドレスバー自動更新）
+  // 追加機能(3): CSSだけ差し替え可能（?css=... と軽い上書き ?sq=48&fs=110）
+  // ======================================================================
+
+  let loadedKifUrl = null;
+  let lastShareUrl = "";
+
+  function parseBranchesParam(raw) {
+    const out = {};
+    if (!raw) return out;
+    for (const token of String(raw).split(",")) {
+      const [pRaw, vRaw] = token.split(":");
+      const p = Number(pRaw);
+      const v = Number(vRaw);
+      if (!Number.isFinite(p) || !Number.isFinite(v)) continue;
+      if (p < 0 || v <= 0) continue;
+      out[p] = v;
+    }
+    return out;
+  }
+
+  function encodeBranchesParam(choiceMap) {
+    const entries = Object.entries(choiceMap || {})
+      .map(([p, v]) => [Number(p), Number(v)])
+      .filter(([p, v]) => Number.isFinite(p) && Number.isFinite(v) && p >= 0 && v > 0)
+      .sort((a, b) => a[0] - b[0]);
+    if (!entries.length) return "";
+    return entries.map(([p, v]) => `${p}:${v}`).join(",");
+  }
+
+  function applyThemeFromQuery() {
+    try {
+      const usp = new URLSearchParams(location.search);
+
+      const cssUrl = usp.get("css");
+      if (cssUrl) {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = cssUrl;
+        document.head.appendChild(link);
+      }
+
+      const sq = usp.get("sq");
+      if (sq) {
+        const n = Number(sq);
+        if (Number.isFinite(n) && n >= 24 && n <= 120) {
+          document.documentElement.style.setProperty("--sq", `${n}px`);
+        }
+      }
+
+      const fs = usp.get("fs");
+      if (fs) {
+        const n = Number(fs);
+        if (Number.isFinite(n) && n >= 50 && n <= 200) {
+          document.body.style.fontSize = `${n}%`;
+        }
+      }
+    } catch (_) {}
+  }
+
+  async function initFromQueryIfAny() {
+    try {
+      const usp = new URLSearchParams(location.search);
+      const flipRaw = (usp.get("flip") || "").toLowerCase();
+      if (flipRaw) boardFlipped = !(flipRaw === "0" || flipRaw === "false" || flipRaw === "off");
+      updateFlipButton();
+      const kifParam = usp.get("kif");
+      const sfenParam = usp.get("sfen");
+      if (sfenParam) {
+        const pos = parseSfenPosition(sfenParam);
+        if (pos) {
+          loadSinglePosition(pos, "SFEN局面");
+          return;
+        }
+      }
+      if (!kifParam) return;
+
+      const ply = Number(usp.get("ply") || "0");
+      const branchesParam = usp.get("branches");
+      const bplyRaw = usp.get("bply");
+      const bply = Number((bplyRaw === null || bplyRaw === "") ? (usp.get("ply") || "0") : bplyRaw);
+      const branch = Number(usp.get("branch") || "0");
+
+      loadedKifUrl = kifParam;
+
+      const res = await fetch(kifParam, { cache: "no-store" });
+      if (!res.ok) return;
+
+      const buf = await res.arrayBuffer();
+      const text = decodeKif(buf);
+      elKifText.value = text;
+
+      loadKifText(text);
+
+      const parsedBranches = parseBranchesParam(branchesParam);
+      if (Object.keys(parsedBranches).length) {
+        branchChoice = parsedBranches;
+        buildPositions();
+      } else if (Number.isFinite(bply) && Number.isFinite(branch) && branch > 0) {
+        branchChoice[Math.max(0, bply)] = branch;
+        buildPositions();
+      }
+
+      if (Number.isFinite(ply)) {
+        setPly(Math.max(0, ply));
+      }
+    } catch (_) {}
+  }
+
+  function getCurrentShareUrl() {
+    const base = `${location.origin}${location.pathname}`;
+    const usp = new URLSearchParams();
+    const current = new URLSearchParams(location.search);
+
+    for (const [k, v] of current.entries()) {
+      if (k === "ply" || k === "bply" || k === "branch" || k === "branches" || k === "kif" || k === "sfen" || k === "flip") continue;
+      usp.append(k, v);
+    }
+
+    if (loadedKifUrl) usp.set("kif", loadedKifUrl);
+    else if (!pathMoves.length && positions[0]) usp.set("sfen", positionToSfen(positions[0], 1));
+    if (boardFlipped) usp.set("flip", "1");
+
+    usp.set("ply", String(curPly));
+
+    try {
+      const encoded = encodeBranchesParam(branchChoice);
+      if (encoded) {
+        usp.set("branches", encoded);
+        const first = encoded.split(",")[0]?.split(":");
+        if (first && first.length === 2) {
+          usp.set("bply", String(Number(first[0])));
+          usp.set("branch", String(Number(first[1])));
+        }
+      }
+    } catch (_) {}
+
+    const qs = usp.toString();
+    return qs ? `${base}?${qs}` : base;
+  }
+
+  function syncShareUrl() {
+    try {
+      const now = getCurrentShareUrl();
+      if (now !== lastShareUrl) {
+        lastShareUrl = now;
+        history.replaceState(null, "", now);
+      }
+    } catch (_) {}
+  }
+
+  async function copyCurrentUrl() {
+    const url = getCurrentShareUrl();
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        alert("局面URLをコピーしたわ。");
+      } else {
+        alert(url);
+      }
+    } catch (_) {
+      alert(url);
+    }
+  }
+
   // buttons
   document.getElementById("btnFirst").addEventListener("click", () => setPly(0));
   document.getElementById("btnPrev").addEventListener("click", () => setPly(curPly-1));
   document.getElementById("btnNext").addEventListener("click", () => setPly(curPly+1));
   document.getElementById("btnLast").addEventListener("click", () => setPly(positions.length-1));
+  document.getElementById("btnFlip").addEventListener("click", () => toggleBoardFlip());
   elSlider.addEventListener("input", (e) => setPly(Number(e.target.value)));
+  document.getElementById("btnJump").addEventListener("click", () => {
+    const n = Number(elJumpPly?.value || "0");
+    if (!Number.isFinite(n)) return;
+    setPly(n);
+  });
+  elJumpPly?.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const n = Number(elJumpPly.value || "0");
+    if (!Number.isFinite(n)) return;
+    setPly(n);
+  });
 
   document.getElementById("btnReset").addEventListener("click", () => {
     if (!kif) {
@@ -795,6 +1776,8 @@
       elSlider.max = "0";
     }
     branchChoice = {};
+    noteMap = {};
+    bookmarks = new Set();
     buildPositions();
     setPly(0);
   });
@@ -802,6 +1785,7 @@
   document.getElementById("btnLoadText").addEventListener("click", () => {
     const t = elKifText.value;
     if (!t.trim()) return;
+    loadedKifUrl = null;
     loadKifText(t);
   });
 
@@ -811,29 +1795,13 @@
     const buf = await f.arrayBuffer();
     const text = decodeKif(buf);
     elKifText.value = text;
+    loadedKifUrl = null;
     loadKifText(text);
-  });
-
-  document.getElementById("btnSample").addEventListener("click", async () => {
-    try {
-      const res = await fetch("./piyo_prev_game.kif", { cache: "no-store" });
-      if (!res.ok) throw new Error("fetch failed");
-      const buf = await res.arrayBuffer();
-      const text = decodeKif(buf);
-      elKifText.value = text;
-      loadKifText(text);
-    } catch (e) {
-      alert("サンプルが見つからないわ。リポジトリ直下に piyo_prev_game.kif を置いてね。");
-    }
   });
 
   // branch select
   elBranchSelect.addEventListener("change", () => {
-    const v = Number(elBranchSelect.value);
-    const ply = curPly;
-    branchChoice[ply] = v; // 0=main, 1..=variation
-    buildPositions();
-    setPly(ply);
+    applyBranchChoice(curPly, Number(elBranchSelect.value));
   });
 
   // copy current line KIF
@@ -862,53 +1830,96 @@
     }
   });
 
-  // initial empty render
-  kif = { meta:{}, mainMoves:[], varMap:new Map() };
-  positions = [initStartpos()];
-  renderBoard(positions[0]);
-  renderHands(positions[0]);
-  updateBranchUI();
-})();
-  async function autoLoadKifFromUrl() {
-  const params = new URLSearchParams(location.search);
-  const kifName = params.get("kif");
-  if (!kifName) return;
+  document.getElementById("btnCopyUrl").addEventListener("click", copyCurrentUrl);
+  document.getElementById("btnCopySfen").addEventListener("click", copyCurrentSfen);
+  document.getElementById("btnLoadSfen").addEventListener("click", loadSfenFromInput);
+  elSfenInput?.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    loadSfenFromInput();
+  });
 
-  if (kifName.includes("..") || kifName.includes("/") || kifName.includes("\\")) {
-    alert("kifパラメータが不正です");
-    return;
+  elBtnToggleBookmark?.addEventListener("click", () => {
+    if (bookmarks.has(curPly)) bookmarks.delete(curPly);
+    else bookmarks.add(curPly);
+    renderBookmarkList();
+    renderMovelist();
+    updateBookmarkButton();
+  });
+
+  elBtnClearNote?.addEventListener("click", () => {
+    noteMap[curPly] = "";
+    updateNoteEditor();
+    renderMovelist();
+  });
+
+  elNoteText?.addEventListener("input", () => {
+    noteMap[curPly] = elNoteText.value;
+    renderMovelist();
+  });
+
+  if (elBoardFrame) {
+    elBoardFrame.addEventListener("click", (e) => {
+      const rect = elBoardFrame.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      if (x < rect.width / 2) setPly(curPly - 1);
+      else setPly(curPly + 1);
+    });
   }
 
-  const url = `kif/${encodeURIComponent(kifName)}`;
+  function isEditableTarget(el) {
+    if (!el) return false;
+    if (el.isContentEditable) return true;
+    const tag = (el.tagName || "").toUpperCase();
+    return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+  }
 
-  try {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error(`KIF取得失敗: ${res.status}`);
-    const kifText = await res.text();
+  document.addEventListener("keydown", (e) => {
+    if (isEditableTarget(e.target)) return;
 
-    // あなたのUIに合わせたID
-    const ta = document.getElementById("kifText");
-    const loadBtn = document.getElementById("btnLoadText");
-
-    if (!ta || !loadBtn) {
-      alert("UI要素が見つかりません（ID確認）");
-      return;
+    let handled = false;
+    if (e.key === "ArrowLeft" || e.key === "h") {
+      setPly(curPly - 1);
+      handled = true;
+    } else if (e.key === "ArrowRight" || e.key === "l") {
+      setPly(curPly + 1);
+      handled = true;
+    } else if (e.key === "ArrowUp") {
+      setPly(curPly - 10);
+      handled = true;
+    } else if (e.key === "ArrowDown") {
+      setPly(curPly + 10);
+      handled = true;
+    } else if (e.key === "Home") {
+      setPly(0);
+      handled = true;
+    } else if (e.key === "End") {
+      setPly(positions.length - 1);
+      handled = true;
+    } else if (e.key === " ") {
+      setPly(e.shiftKey ? curPly - 1 : curPly + 1);
+      handled = true;
+    } else if (e.key.toLowerCase() === "f") {
+      toggleBoardFlip();
+      handled = true;
     }
 
-    ta.value = kifText;
-    ta.dispatchEvent(new Event("input", { bubbles: true }));
-    ta.dispatchEvent(new Event("change", { bubbles: true }));
-    loadBtn.click();
+    if (handled) e.preventDefault();
+  });
 
+  // initial empty render
+  applyThemeFromQuery();
+  kif = { meta:{}, mainMoves:[], varMap:new Map() };
+  positions = [initStartpos()];
+  pathMoves = [];
+  renderMovelist();
+  renderBranchTree();
+  renderBookmarkList();
+  updateFlipButton();
+  setPly(0);
 
-  } catch (e) {
-    console.error(e);
-    alert(e?.message || String(e));
-  }
-}
-
-window.addEventListener("DOMContentLoaded", autoLoadKifFromUrl);
-
+  // URL初期化（既存機能に干渉しない）
+  initFromQueryIfAny();
+})();
 </script>
 </body>
 </html>
